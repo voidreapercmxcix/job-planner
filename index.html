@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Job Planner</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1B2130">
+<style>
+:root{
+  --bg:#1B2130; --panel:#252D3E; --panel2:#2F384B; --line:#3B4559;
+  --ink:#EEF1F6; --ink2:#A7B0C2; --ink3:#6F7A90;
+  --amber:#F2B441; --amber-ink:#1B2130; --red:#F0654F; --green:#5CC58C; --blue:#6FA8F5;
+  --r:14px; --tap:48px;
+  font-size:17px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.35;-webkit-text-size-adjust:100%}
+body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+button,input,textarea,select{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer;min-height:var(--tap);border-radius:12px;padding:0 14px}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.hidden{display:none!important}
+
+header{padding:10px 14px 6px;display:flex;align-items:center;gap:8px}
+header h1{font-size:1.35rem;font-weight:700;letter-spacing:-.01em;flex:1}
+header h1 small{display:block;font-size:.85rem;font-weight:400;color:var(--ink2)}
+.btn{background:var(--panel2);font-weight:600;white-space:nowrap}
+.btn.primary{background:var(--amber);color:var(--amber-ink)}
+.btn.danger{background:var(--red);color:#fff}
+.btn.ghost{background:transparent;color:var(--ink2)}
+.btn.icon{width:var(--tap);padding:0;font-size:1.3rem}
+
+.days{display:flex;gap:6px;overflow-x:auto;padding:4px 14px 10px;scrollbar-width:none}
+.days::-webkit-scrollbar{display:none}
+.day{flex:0 0 auto;min-width:58px;min-height:56px;padding:6px 8px;border-radius:12px;background:var(--panel);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1}
+.day b{font-size:1.2rem}
+.day span{font-size:.75rem;color:var(--ink2)}
+.day.on{background:var(--amber);color:var(--amber-ink)}
+.day.on span{color:var(--amber-ink)}
+.day .dot{width:6px;height:6px;border-radius:50%;background:var(--blue);margin-top:3px}
+.day.on .dot{background:var(--amber-ink)}
+
+.board{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;padding:0 14px 14px;scrollbar-width:none}
+.board::-webkit-scrollbar{display:none}
+.col{flex:0 0 calc(100% - 28px);scroll-snap-align:center;display:flex;flex-direction:column;gap:10px;min-height:0}
+@media(min-width:900px){.col{flex:0 0 calc(33.33% - 7px)}}
+.col h2{font-size:.95rem;font-weight:600;color:var(--ink2);padding:4px 4px 0;display:flex;justify-content:space-between}
+.col h2 span{color:var(--ink3)}
+.col .list{display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding-bottom:20px}
+.empty{color:var(--ink3);padding:24px 8px;text-align:center;font-size:.95rem}
+
+.card{background:var(--panel);border-radius:var(--r);padding:12px 14px;border-left:5px solid var(--line)}
+.card.warn{border-left-color:var(--amber)}
+.card.late{border-left-color:var(--red)}
+.card.done{opacity:.7}
+.card .top{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+.reg{font-size:1.35rem;font-weight:800;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.veh{color:var(--ink2);font-size:.9rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pay{font-weight:700;color:var(--green)}
+.stop{display:grid;grid-template-columns:22px 1fr;gap:2px 8px;padding:6px 0;border-top:1px solid var(--line)}
+.stop .k{color:var(--ink3);font-weight:700;font-size:.8rem;padding-top:3px}
+.stop .where{font-weight:600}
+.stop .addr{color:var(--ink2);font-size:.88rem}
+.stop .when{font-size:.95rem;margin-top:2px}
+.stop .when b{color:var(--amber)}
+.stop .win{color:var(--ink3);font-size:.82rem}
+.flag{display:inline-block;font-size:.8rem;font-weight:600;padding:2px 8px;border-radius:8px;margin:6px 6px 0 0}
+.flag.a{background:#4a3b12;color:var(--amber)}
+.flag.r{background:#4d231c;color:var(--red)}
+.meta{color:var(--ink3);font-size:.82rem;margin-top:6px}
+.acts{display:flex;gap:8px;margin-top:10px}
+.acts .btn{flex:1;min-height:44px;padding:0 8px;font-size:.95rem}
+
+.sheet{position:fixed;inset:0;background:rgba(10,14,22,.6);display:flex;align-items:flex-end;z-index:10}
+.sheet>div{background:var(--bg);width:100%;max-height:92vh;overflow-y:auto;border-radius:20px 20px 0 0;padding:14px 16px calc(20px + env(safe-area-inset-bottom))}
+@media(min-width:700px){.sheet{align-items:center;justify-content:center}.sheet>div{max-width:560px;border-radius:20px}}
+.sheet h3{font-size:1.15rem;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.f{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.f label{font-size:.85rem;color:var(--ink2)}
+.f input,.f textarea,.f select{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 12px;min-height:var(--tap);width:100%;color-scheme:dark}
+.f textarea{min-height:140px;resize:vertical}
+.grp{background:var(--panel);border-radius:var(--r);padding:12px 12px 2px;margin-bottom:12px}
+.grp h4{font-size:.95rem;margin-bottom:10px;color:var(--amber)}
+.grp .f input{background:var(--panel2)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.note{font-size:.88rem;color:var(--ink2);margin:-6px 0 12px}
+.warns{margin-bottom:12px}
+.warns div{background:#4a3b12;color:var(--amber);padding:9px 12px;border-radius:10px;margin-bottom:6px;font-size:.92rem}
+.warns div.r{background:#4d231c;color:var(--red)}
+.foot{display:flex;gap:8px;margin-top:6px}
+.foot .btn{flex:1}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;z-index:20;
+  transition:opacity .2s;opacity:0;pointer-events:none}
+.toast.show{opacity:1}
+.menu p{color:var(--ink2);font-size:.9rem;margin-bottom:12px}
+.menu .btn{width:100%;margin-bottom:8px;text-align:left}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Jobs <small id="todayLabel"></small></h1>
+  <button class="btn" id="pasteBtn">Paste job</button>
+  <button class="btn primary icon" id="addBtn" aria-label="Add job">+</button>
+  <button class="btn ghost icon" id="menuBtn" aria-label="Menu">⋯</button>
+</header>
+
+<div class="days" id="days"></div>
+
+<div class="board" id="board">
+  <section class="col" data-status="todo"><h2>To collect <span id="n-todo"></span></h2><div class="list" id="l-todo"></div></section>
+  <section class="col" data-status="onboard"><h2>On board <span id="n-onboard"></span></h2><div class="list" id="l-onboard"></div></section>
+  <section class="col" data-status="done"><h2>Delivered <span id="n-done"></span></h2><div class="list" id="l-done"></div></section>
+</div>
+
+<!-- Edit sheet -->
+<div class="sheet hidden" id="editSheet">
+  <div>
+    <h3><span id="editTitle">New job</span><button class="btn ghost" id="editClose">Close</button></h3>
+    <div class="row">
+      <div class="f"><label for="reg">Reg</label><input id="reg" autocapitalize="characters" placeholder="NV73 OCL"></div>
+      <div class="f"><label for="ref">Job ref</label><input id="ref" placeholder="J-A945-98DF"></div>
+    </div>
+    <div class="f"><label for="vehicle">Vehicle</label><input id="vehicle" placeholder="Iveco Daily 35S14B"></div>
+
+    <div class="grp">
+      <h4>Collect</h4>
+      <div class="f"><label for="cFrom">From</label><input id="cFrom" placeholder="Site name, address, postcode"></div>
+      <div class="row">
+        <div class="f"><label for="cStart">Window opens</label><input id="cStart" type="datetime-local"></div>
+        <div class="f"><label for="cEnd">Window closes</label><input id="cEnd" type="datetime-local"></div>
+      </div>
+      <div class="f"><label for="cPlan">I plan to collect at</label><input id="cPlan" type="datetime-local"></div>
+    </div>
+
+    <div class="grp">
+      <h4>Deliver</h4>
+      <div class="f"><label for="dTo">To</label><input id="dTo" placeholder="Site name, address, postcode"></div>
+      <div class="row">
+        <div class="f"><label for="dStart">Window opens</label><input id="dStart" type="datetime-local"></div>
+        <div class="f"><label for="dEnd">Window closes</label><input id="dEnd" type="datetime-local"></div>
+      </div>
+      <div class="f"><label for="dPlan">I plan to deliver at</label><input id="dPlan" type="datetime-local"></div>
+    </div>
+
+    <div class="row">
+      <div class="f"><label for="miles">Miles</label><input id="miles" type="number" inputmode="decimal"></div>
+      <div class="f"><label for="hours">Drive hours</label><input id="hours" type="number" inputmode="decimal" step="0.25"></div>
+    </div>
+    <div class="row">
+      <div class="f"><label for="pay">Pay (£)</label><input id="pay" type="number" inputmode="decimal" step="0.01"></div>
+      <div class="f"><label for="status">Stage</label><select id="status"><option value="todo">To collect</option><option value="onboard">On board</option><option value="done">Delivered</option></select></div>
+    </div>
+    <div class="f"><label for="notes">Notes</label><textarea id="notes" style="min-height:70px" placeholder="Gate codes, contact names, anything you need on site"></textarea></div>
+
+    <div class="warns" id="editWarns"></div>
+    <div class="foot">
+      <button class="btn danger hidden" id="deleteBtn">Delete</button>
+      <button class="btn primary" id="saveBtn">Save job</button>
+    </div>
+  </div>
+</div>
+
+<!-- Paste sheet -->
+<div class="sheet hidden" id="pasteSheet">
+  <div>
+    <h3>Paste a job<button class="btn ghost" id="pasteClose">Close</button></h3>
+    <p class="note">Copy the whole job from your jobs app, paste it here, and the fields get filled in for you to check.</p>
+    <div class="f"><textarea id="pasteText" placeholder="Paste here"></textarea></div>
+    <div class="foot"><button class="btn primary" id="pasteGo">Read it</button></div>
+  </div>
+</div>
+
+<!-- Menu sheet -->
+<div class="sheet hidden" id="menuSheet">
+  <div class="menu">
+    <h3>Backup<button class="btn ghost" id="menuClose">Close</button></h3>
+    <p>Everything is stored on this phone only. Save a backup now and then, and restore it if you change phones.</p>
+    <button class="btn" id="exportBtn">Save backup file</button>
+    <button class="btn" id="importBtn">Restore from backup</button>
+    <input type="file" id="importFile" accept="application/json" class="hidden">
+    <button class="btn" id="clearDone">Remove delivered jobs older than 7 days</button>
+    <p id="storageNote" style="margin-top:8px"></p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- storage ----------
+const KEY = 'jobs.v1';
+let jobs = [];
+function load(){ try{ jobs = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ jobs = []; } }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(jobs)); }catch(e){ toast('Could not save. Storage may be full.'); } }
+
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const pad = n => String(n).padStart(2,'0');
+function dt(s){ return s ? new Date(s) : null; }               // 'YYYY-MM-DDTHH:MM' local
+function dayKey(d){ return d ? `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}` : ''; }
+function fmt(d){ if(!d) return ''; return `${DAYS[d.getDay()]} ${d.getDate()} ${MONS[d.getMonth()]} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function fmtShort(d){ return d ? `${DAYS[d.getDay()]} ${pad(d.getHours())}:${pad(d.getMinutes())}` : ''; }
+function toLocalInput(d){ return `${dayKey(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function money(n){ return n ? '£'+Number(n).toFixed(2) : ''; }
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
+function esc(s){ return String(s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ---------- checks ----------
+function checks(j){
+  const out = [];
+  const cs=dt(j.cStart), ce=dt(j.cEnd), cp=dt(j.cPlan), ds=dt(j.dStart), de=dt(j.dEnd), dp=dt(j.dPlan);
+  if(cp && cs && cp<cs) out.push({l:'a', t:`Collection planned before the window opens (${fmt(cs)})`});
+  if(cp && ce && cp>ce) out.push({l:'r', t:`Collection planned after the window closes (${fmt(ce)})`});
+  if(dp && ds && dp<ds) out.push({l:'a', t:`Delivery planned before the window opens (${fmt(ds)})`});
+  if(dp && de && dp>de) out.push({l:'r', t:`Delivery planned after the window closes (${fmt(de)})`});
+  if(cp && dp && dp<=cp) out.push({l:'r', t:'Delivery is planned before collection'});
+  if(cp && dp && j.hours){
+    const gap = (dp-cp)/36e5;
+    if(gap < Number(j.hours)) out.push({l:'r', t:`Only ${gap.toFixed(1)} h between collect and deliver, drive is ${j.hours} h`});
+  }
+  if(cp && ce && !out.some(o=>o.l==='r') && (ce-cp) < 2*36e5 && cp<=ce) out.push({l:'a', t:'Collecting less than 2 h before the window closes'});
+  return out;
+}
+
+// ---------- day strip ----------
+let selectedDay = dayKey(new Date());
+function buildDays(){
+  const el = $('days'); el.innerHTML='';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const all = document.createElement('button'); all.className='day'+(selectedDay===''?' on':''); all.innerHTML='<b>All</b><span>jobs</span>';
+  all.onclick=()=>{selectedDay='';render();}; el.appendChild(all);
+  for(let i=-1;i<10;i++){
+    const d = new Date(today); d.setDate(d.getDate()+i);
+    const k = dayKey(d);
+    const b = document.createElement('button'); b.className='day'+(k===selectedDay?' on':'');
+    const has = jobs.some(j=>j.status!=='done' && jobDays(j).includes(k));
+    b.innerHTML=`<span>${i===0?'Today':DAYS[d.getDay()]}</span><b>${d.getDate()}</b>${has?'<div class="dot"></div>':''}`;
+    b.onclick=()=>{selectedDay=k;render();};
+    el.appendChild(b);
+  }
+}
+function jobDays(j){
+  const s = new Set();
+  if(j.cPlan) s.add(dayKey(dt(j.cPlan))); else if(j.cStart) s.add(dayKey(dt(j.cStart)));
+  if(j.dPlan) s.add(dayKey(dt(j.dPlan))); else if(j.dEnd) s.add(dayKey(dt(j.dEnd)));
+  return [...s];
+}
+
+// ---------- render board ----------
+function render(){
+  buildDays();
+  $('todayLabel').textContent = fmt(new Date()).slice(0,-6);
+  for(const st of ['todo','onboard','done']){
+    const list = jobs.filter(j=>j.status===st && (selectedDay==='' || jobDays(j).includes(selectedDay)))
+      .sort((a,b)=> (a.cPlan||a.cStart||'').localeCompare(b.cPlan||b.cStart||''));
+    $('n-'+st).textContent = list.length ? list.length : '';
+    const el = $('l-'+st); el.innerHTML='';
+    if(!list.length){ el.innerHTML = `<div class="empty">${st==='todo'?'Nothing to collect'+(selectedDay?' this day':'')+'. Tap + or Paste job.':st==='onboard'?'Nothing on board.':'Nothing delivered yet.'}</div>`; continue; }
+    for(const j of list) el.appendChild(card(j));
+  }
+}
+function stopHtml(k, where, plan, start, end){
+  const p=dt(plan), s=dt(start), e=dt(end);
+  const parts = String(where||'').split(',').map(x=>x.trim()).filter(Boolean);
+  const name = parts.shift()||'';
+  return `<div class="stop"><div class="k">${k}</div><div>
+    <div class="where">${esc(name)}</div>${parts.length?`<div class="addr">${esc(parts.join(', '))}</div>`:''}
+    <div class="when">${p?`Plan <b>${fmt(p)}</b>`:'<span style="color:var(--ink3)">No time planned</span>'}</div>
+    ${(s||e)?`<div class="win">Window ${s?fmt(s):'?'} to ${e?fmt(e):'?'}</div>`:''}
+  </div></div>`;
+}
+function card(j){
+  const d = document.createElement('article');
+  const w = checks(j);
+  d.className = 'card' + (w.some(x=>x.l==='r')?' late':w.length?' warn':'') + (j.status==='done'?' done':'');
+  const next = j.status==='todo' ? ['onboard','Collected'] : j.status==='onboard' ? ['done','Delivered'] : null;
+  d.innerHTML = `
+    <div class="top"><div class="reg">${esc(j.reg||'—')}</div><div class="veh">${esc(j.vehicle||'')}</div><div class="pay">${money(j.pay)}</div></div>
+    ${stopHtml('C', j.cFrom, j.cPlan, j.cStart, j.cEnd)}
+    ${stopHtml('D', j.dTo, j.dPlan, j.dStart, j.dEnd)}
+    ${w.map(x=>`<span class="flag ${x.l}">${esc(x.t)}</span>`).join('')}
+    <div class="meta">${[j.ref, j.miles?j.miles+' mi':'', j.hours?j.hours+' h drive':''].filter(Boolean).join(' · ')}${j.notes?'<br>'+esc(j.notes):''}</div>
+    <div class="acts">
+      ${next?`<button class="btn primary" data-a="next">${next[1]}</button>`:`<button class="btn" data-a="back">Back to on board</button>`}
+      <button class="btn" data-a="cal">Calendar</button>
+      <button class="btn" data-a="edit">Edit</button>
+    </div>`;
+  d.querySelector('[data-a="next"]')?.addEventListener('click',()=>{ j.status=next[0]; save(); render(); toast(next[1]); });
+  d.querySelector('[data-a="back"]')?.addEventListener('click',()=>{ j.status='onboard'; save(); render(); });
+  d.querySelector('[data-a="cal"]').addEventListener('click',()=>calendar(j));
+  d.querySelector('[data-a="edit"]').addEventListener('click',()=>openEdit(j));
+  return d;
+}
+
+// ---------- edit sheet ----------
+const F = ['reg','ref','vehicle','cFrom','cStart','cEnd','cPlan','dTo','dStart','dEnd','dPlan','miles','hours','pay','status','notes'];
+let editing = null;
+function openEdit(j){
+  editing = j ? j.id : null;
+  const v = j || {status:'todo'};
+  for(const k of F) $(k).value = v[k] ?? '';
+  $('editTitle').textContent = j ? (j.reg||'Edit job') : 'New job';
+  $('deleteBtn').classList.toggle('hidden', !j);
+  liveWarns();
+  $('editSheet').classList.remove('hidden');
+  $('editSheet').querySelector('div').scrollTop = 0;
+}
+function readForm(){ const o={}; for(const k of F) o[k]=$(k).value.trim(); o.reg=o.reg.toUpperCase().replace(/\s+/g,' '); return o; }
+function liveWarns(){
+  const w = checks(readForm());
+  $('editWarns').innerHTML = w.map(x=>`<div class="${x.l}">${esc(x.t)}</div>`).join('');
+}
+F.forEach(k=>$(k).addEventListener('input',liveWarns));
+$('saveBtn').onclick=()=>{
+  const o = readForm();
+  if(!o.reg && !o.cFrom && !o.dTo){ toast('Add at least a reg or an address'); return; }
+  if(editing){ const j=jobs.find(x=>x.id===editing); Object.assign(j,o); }
+  else { jobs.push({id:uid(), created:Date.now(), ...o}); }
+  save(); $('editSheet').classList.add('hidden'); render(); toast('Saved');
+};
+$('deleteBtn').onclick=()=>{ if(confirm('Delete this job?')){ jobs=jobs.filter(x=>x.id!==editing); save(); $('editSheet').classList.add('hidden'); render(); } };
+$('editClose').onclick=()=>$('editSheet').classList.add('hidden');
+$('addBtn').onclick=()=>openEdit(null);
+
+// ---------- paste parser ----------
+function parseJob(text){
+  const o = {status:'todo'};
+  const t = text.replace(/\r/g,'');
+  const lines = t.split('\n').map(l=>l.trim()).filter(l=>l && !/^(0|-|–)$/.test(l));
+
+  const reg = t.match(/\b([A-Z]{2}\d{2})\s?([A-Z]{3})\b/);
+  if(reg) o.reg = reg[1]+' '+reg[2];
+  const ref = t.match(/\b(J-[A-Z0-9]{3,6}-[A-Z0-9]{3,6})\b/i) || t.match(/\bref[^A-Za-z0-9]*([A-Z0-9-]{5,})/i);
+  if(ref) o.ref = ref[1].toUpperCase();
+  const miles = t.match(/(\d+(?:\.\d+)?)\s*(?:miles|mi)\b/i); if(miles) o.miles = miles[1];
+  const hrs = t.match(/(\d+)\s*(?:hrs?|hours?)(?:\s*(\d+)\s*(?:mins?|m))?/i);
+  if(hrs) o.hours = (Number(hrs[1]) + (hrs[2]?Number(hrs[2])/60:0)).toFixed(2).replace(/\.?0+$/,'');
+  const pay = t.match(/£\s?(\d+(?:[.,]\d{2})?)/); if(pay) o.pay = pay[1].replace(',','.');
+
+  // vehicle: line right after the reg, or a line with a known make
+  const makes = /\b(iveco|ford|mercedes|vauxhall|renault|peugeot|citroen|fiat|volkswagen|vw|nissan|toyota|man|daf|scania|volvo|isuzu|maxus|ldv)\b/i;
+  const vl = lines.find(l=>makes.test(l) && !/[A-Z]{2}\d{2}\s?[A-Z]{3}/.test(l));
+  if(vl) o.vehicle = vl.replace(/^(vehicle|van)\s*[:\-]?\s*/i,'');
+  else if(reg){ const i = lines.findIndex(l=>l.includes(reg[0])); if(i>=0 && lines[i+1] && !/\d{2}:\d{2}/.test(lines[i+1])) o.vehicle = lines[i+1]; }
+
+  // dates: "Mon 14 Sep 11:00", "14 Sep 11:00", "14/09/2026 11:00", "14/09 11:00"
+  const now = new Date();
+  const found = [];
+  const re1 = /(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\s+)?(\d{1,2})\s+([A-Z][a-z]{2})[a-z]*\s*(\d{4})?\s*,?\s*(\d{1,2}):(\d{2})/g;
+  const re2 = /(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s*,?\s*(\d{1,2}):(\d{2})/g;
+  let m;
+  while((m=re1.exec(t))){ const mo = MONS.findIndex(x=>x.toLowerCase()===m[2].toLowerCase()); if(mo>=0) found.push({i:m.index, d:mkDate(m[3], mo, m[1], m[4], m[5], now)}); }
+  while((m=re2.exec(t))){ found.push({i:m.index, d:mkDate(m[3], Number(m[2])-1, m[1], m[4], m[5], now)}); }
+  found.sort((a,b)=>a.i-b.i);
+  const ds = found.map(x=>x.d);
+  if(ds[0]) o.cStart = toLocalInput(ds[0]);
+  if(ds[1]) o.cEnd = toLocalInput(ds[1]);
+  if(ds[2]) o.dStart = toLocalInput(ds[2]);
+  if(ds[3]) o.dEnd = toLocalInput(ds[3]);
+
+  // addresses: blocks containing a UK postcode, in order
+  const pc = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/;
+  const addrs = [];
+  for(let i=0;i<lines.length;i++){
+    if(pc.test(lines[i])){
+      // gather up to 3 preceding non-date, non-label lines as the site name/address
+      const block=[];
+      for(let k=Math.max(0,i-3); k<=i; k++){
+        const l = lines[k];
+        if(/\d{2}:\d{2}/.test(l) || /^(collect|deliver|pickup|drop)/i.test(l) || /£/.test(l) || /\bmiles\b/i.test(l) || (reg && l.includes(reg[0]))) { block.length=0; continue; }
+        block.push(l);
+      }
+      const a = block.join(', ').replace(/\s*,\s*/g,', ').replace(/(, )+/g,', ').replace(/^, |, $/g,'');
+      if(a && !addrs.includes(a)) addrs.push(a);
+    }
+  }
+  if(addrs[0]) o.cFrom = addrs[0];
+  if(addrs[1]) o.dTo = addrs[1];
+  return o;
+}
+function mkDate(y, mo, d, h, mi, now){
+  let year = y ? Number(y.length===2?'20'+y:y) : now.getFullYear();
+  const dte = new Date(year, mo, Number(d), Number(h), Number(mi));
+  if(!y){ // no year given: if it looks more than 6 months in the past, assume next year
+    if(now - dte > 182*864e5) dte.setFullYear(year+1);
+  }
+  return dte;
+}
+$('pasteBtn').onclick=()=>{ $('pasteText').value=''; $('pasteSheet').classList.remove('hidden'); setTimeout(()=>$('pasteText').focus(),50); };
+$('pasteClose').onclick=()=>$('pasteSheet').classList.add('hidden');
+$('pasteGo').onclick=()=>{
+  const txt = $('pasteText').value;
+  if(!txt.trim()){ toast('Nothing pasted yet'); return; }
+  const o = parseJob(txt);
+  $('pasteSheet').classList.add('hidden');
+  openEdit(null);
+  for(const k of F) if(o[k]!==undefined) $(k).value = o[k];
+  $('editTitle').textContent = 'Check the details';
+  liveWarns();
+  const got = ['reg','cFrom','dTo','cStart','dEnd'].filter(k=>o[k]).length;
+  toast(got>=4 ? 'Read it. Check and add your planned times.' : 'Read some of it. Fill in the rest.');
+};
+
+// ---------- calendar (.ics) ----------
+function icsDate(d){ return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'T'+pad(d.getHours())+pad(d.getMinutes())+'00'; }
+function icsEsc(s){ return String(s||'').replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/[,;]/g, m=>'\\'+m); }
+function calendar(j){
+  const ev = [];
+  const cp=dt(j.cPlan), dp=dt(j.dPlan), ce=dt(j.cEnd), de=dt(j.dEnd);
+  const tag = j.reg||j.ref||'Job';
+  function add(title, start, mins, loc, alarmMin, desc){
+    const end = new Date(start.getTime()+mins*60000);
+    ev.push(`BEGIN:VEVENT\r\nUID:${j.id}-${title.replace(/\W/g,'')}@jobplanner\r\nDTSTAMP:${icsDate(new Date())}\r\nDTSTART:${icsDate(start)}\r\nDTEND:${icsDate(end)}\r\nSUMMARY:${icsEsc(title)}\r\nLOCATION:${icsEsc(loc)}\r\nDESCRIPTION:${icsEsc(desc)}\r\nBEGIN:VALARM\r\nTRIGGER:-PT${alarmMin}M\r\nACTION:DISPLAY\r\nDESCRIPTION:${icsEsc(title)}\r\nEND:VALARM\r\nEND:VEVENT\r\n`);
+  }
+  const desc = [j.ref, j.vehicle, j.miles?j.miles+' miles':'', j.hours?j.hours+' h':'', money(j.pay), j.notes].filter(Boolean).join('\n');
+  if(cp) add(`Collect ${tag}`, cp, 60, j.cFrom, 60, desc);
+  if(dp) add(`Deliver ${tag}`, dp, 60, j.dTo, 60, desc);
+  if(ce && j.status!=='done' && j.status!=='onboard') add(`Collection window closes ${tag}`, ce, 15, j.cFrom, 120, desc);
+  if(de && j.status!=='done') add(`Delivery window closes ${tag}`, de, 15, j.dTo, 120, desc);
+  if(!ev.length){ toast('Set a planned time or a window first'); return; }
+  const ics = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Job Planner//EN\r\nCALSCALE:GREGORIAN\r\n${ev.join('')}END:VCALENDAR\r\n`;
+  downloadFile(`${tag.replace(/\s/g,'')}.ics`, ics, 'text/calendar');
+  toast('Calendar file ready. Open it to add the reminders.');
+}
+function downloadFile(name, content, type){
+  const blob = new Blob([content], {type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
+}
+
+// ---------- menu / backup ----------
+$('menuBtn').onclick=()=>{ $('storageNote').textContent = `${jobs.length} job${jobs.length===1?'':'s'} stored on this phone.`; $('menuSheet').classList.remove('hidden'); };
+$('menuClose').onclick=()=>$('menuSheet').classList.add('hidden');
+$('exportBtn').onclick=()=>downloadFile(`jobs-backup-${dayKey(new Date())}.json`, JSON.stringify(jobs,null,2), 'application/json');
+$('importBtn').onclick=()=>$('importFile').click();
+$('importFile').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ const arr=JSON.parse(r.result); if(!Array.isArray(arr)) throw 0;
+      let added=0; for(const j of arr){ if(j && j.id && !jobs.some(x=>x.id===j.id)){ jobs.push(j); added++; } }
+      save(); render(); $('menuSheet').classList.add('hidden'); toast(`Restored ${added} job${added===1?'':'s'}`);
+    }catch(err){ toast('That file is not a planner backup'); } };
+  r.readAsText(f); e.target.value='';
+};
+$('clearDone').onclick=()=>{
+  const cut = Date.now()-7*864e5;
+  const before = jobs.length;
+  jobs = jobs.filter(j=> !(j.status==='done' && (dt(j.dPlan)||dt(j.dEnd)||new Date(j.created||0)) < cut));
+  save(); render(); toast(`Removed ${before-jobs.length}`); $('menuSheet').classList.add('hidden');
+};
+document.querySelectorAll('.sheet').forEach(s=>s.addEventListener('click',e=>{ if(e.target===s) s.classList.add('hidden'); }));
+
+// ---------- boot ----------
+load(); render();
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+</script>
+</body>
+</html>
