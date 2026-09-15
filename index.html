@@ -352,13 +352,13 @@ function parseJob(text){
   // vehicle: line right after the reg, or a line with a known make
   const makes = /\b(iveco|ford|mercedes|vauxhall|renault|peugeot|citroen|fiat|volkswagen|vw|nissan|toyota|man|daf|scania|volvo|isuzu|maxus|ldv)\b/i;
   const vl = lines.find(l=>makes.test(l) && !/[A-Z]{2}\d{2}\s?[A-Z]{3}/.test(l));
-  if(vl) o.vehicle = vl.replace(/^(vehicle|van)\s*[:\-]?\s*/i,'');
+  if(vl) o.vehicle = vl.replace(/^(vehicle|van)\s*[:\-]?\s*/i,'').replace(/\b([A-Z])([A-Z]+)\b/g,(m,a,b)=>/\d/.test(m)?m:a+b.toLowerCase());
   else if(reg){ const i = lines.findIndex(l=>l.includes(reg[0])); if(i>=0 && lines[i+1] && !/\d{2}:\d{2}/.test(lines[i+1])) o.vehicle = lines[i+1]; }
 
   // dates: "Mon 14 Sep 11:00", "14 Sep 11:00", "14/09/2026 11:00", "14/09 11:00"
   const now = new Date();
   const found = [];
-  const re1 = /(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*\s+)?(\d{1,2})\s+([A-Z][a-z]{2})[a-z]*\s*(\d{4})?\s*,?\s*(\d{1,2}):(\d{2})/g;
+  const re1 = /(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*,?\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+([A-Z][a-z]{2})[a-z]*\s*(\d{4})?\s*,?\s*(\d{1,2}):(\d{2})/g;
   const re2 = /(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s*,?\s*(\d{1,2}):(\d{2})/g;
   let m;
   while((m=re1.exec(t))){ const mo = MONS.findIndex(x=>x.toLowerCase()===m[2].toLowerCase()); if(mo>=0) found.push({i:m.index, d:mkDate(m[3], mo, m[1], m[4], m[5], now)}); }
@@ -370,22 +370,25 @@ function parseJob(text){
   if(ds[2]) o.dStart = toLocalInput(ds[2]);
   if(ds[3]) o.dEnd = toLocalInput(ds[3]);
 
-  // addresses: blocks containing a UK postcode, in order
+  // addresses: any line ending in a UK postcode. If the line is already a full
+  // comma-separated address, use it alone; otherwise gather the lines above it.
   const pc = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/;
+  const junk = l => /\d{2}:\d{2}/.test(l) || /^(collect|deliver|pickup|drop)/i.test(l) || /£/.test(l) || /\bmiles\b/i.test(l) || (reg && l.includes(reg[0])) || (o.vehicle && l===o.vehicle) || (o.ref && l.includes(o.ref)) || /insured|trade plate|transporter/i.test(l);
+  const clean = a => a.split(',').map(x=>x.trim()).filter(x=>x && !/^(0|-|–|n\/a)$/i.test(x)).join(', ');
   const addrs = [];
   for(let i=0;i<lines.length;i++){
-    if(pc.test(lines[i])){
-      // gather up to 3 preceding non-date, non-label lines as the site name/address
+    if(!pc.test(lines[i]) || junk(lines[i])) continue;
+    let a;
+    if((lines[i].match(/,/g)||[]).length >= 2){ a = clean(lines[i]); }
+    else {
       const block=[];
-      for(let k=Math.max(0,i-3); k<=i; k++){
-        const l = lines[k];
-        if(/\d{2}:\d{2}/.test(l) || /^(collect|deliver|pickup|drop)/i.test(l) || /£/.test(l) || /\bmiles\b/i.test(l) || (reg && l.includes(reg[0]))) { block.length=0; continue; }
-        block.push(l);
-      }
-      const a = block.join(', ').replace(/\s*,\s*/g,', ').replace(/(, )+/g,', ').replace(/^, |, $/g,'');
-      if(a && !addrs.includes(a)) addrs.push(a);
+      for(let k=Math.max(0,i-3); k<=i; k++){ if(junk(lines[k])){ block.length=0; continue; } block.push(lines[k]); }
+      a = clean(block.join(', '));
     }
+    if(a && !addrs.includes(a)) addrs.push(a);
   }
+  const type = lines.find(l=>/insured|trade plate|transporter|driven/i.test(l) && !pc.test(l));
+  if(type) o.notes = type;
   if(addrs[0]) o.cFrom = addrs[0];
   if(addrs[1]) o.dTo = addrs[1];
   return o;
