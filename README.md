@@ -84,7 +84,7 @@ When a new `index.html` (and usually `sw.js`) is released, upload them to the re
 
 ## Known issues
 
-If you do find anything wrong please [open an issue](https://github.com/YOUR-USERNAME/job-planner/issues) and I'll do my best to resolve it ASAP!
+If you do find anything wrong please [open an issue](https://github.com/voidreapercmxcix/job-planner/issues) and I'll do my best to resolve it ASAP!
 
 
 ## Roadmap
