@@ -82,6 +82,11 @@ When a new `index.html` (and usually `sw.js`) is released, upload them to the re
 | `manifest.json` | Tells the phone how to install it as an app |
 | `icon.svg` | Home-screen icon |
 
+## Known issues
+
+There is a small bug where the vehicle details will fill in the first address fields, i am working on a fix but for now just delete that smmall bit 
+
+
 ## Roadmap
 
 - Native Android build with real alarms, so reminders don't depend on the calendar
