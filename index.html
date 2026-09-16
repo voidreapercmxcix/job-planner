@@ -51,7 +51,10 @@ header h1 small{display:block;font-size:.85rem;font-weight:400;color:var(--ink2)
 .board::-webkit-scrollbar{display:none}
 .col{flex:0 0 calc(100% - 28px);scroll-snap-align:center;display:flex;flex-direction:column;gap:10px;min-height:0}
 @media(min-width:900px){.col{flex:0 0 calc(33.33% - 7px)}}
-.col h2{font-size:.95rem;font-weight:600;color:var(--ink2);padding:4px 4px 0;display:flex;justify-content:space-between}
+.col h2{font-size:.95rem;font-weight:600;color:var(--ink2);}
+.col[data-status="todo"] h2,.col[data-status="onboard"] h2{color:var(--red);}
+.col[data-status="done"] h2{color:var(--green);}
+.col h2{padding:4px 4px 0;display:flex;justify-content:space-between}
 .col h2 span{color:var(--ink3)}
 .col .list{display:flex;flex-direction:column;gap:10px;overflow-y:auto;padding-bottom:20px}
 .empty{color:var(--ink3);padding:24px 8px;text-align:center;font-size:.95rem}
