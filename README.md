@@ -84,7 +84,7 @@ When a new `index.html` (and usually `sw.js`) is released, upload them to the re
 
 ## Known issues
 
-There is a small bug where the vehicle details will fill in the first address fields, i am working on a fix but for now just delete that smmall bit 
+If you do find anything wrong please to get in contact and ill do my best to resolve it ASAP!
 
 
 ## Roadmap
