@@ -238,6 +238,7 @@ header h1 small{display:block;font-size:.85rem;font-weight:400;color:var(--ink2)
     </div>
     <div class="foot">
       <button class="btn danger hidden" id="deleteBtn">Delete</button>
+      <button class="btn" id="cancelEditBtn">Cancel</button>
       <button class="btn primary" id="saveBtn">Save job</button>
     </div>
   </div>
@@ -271,7 +272,7 @@ header h1 small{display:block;font-size:.85rem;font-weight:400;color:var(--ink2)
 <script>
 // ---------- storage ----------
 const KEY = 'jobs.v1';
-const VERSION = '0.7';
+const VERSION = '0.8';
 let jobs = [];
 function load(){ try{ jobs = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ jobs = []; } }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(jobs)); }catch(e){ toast('Could not save. Storage may be full.'); } }
@@ -290,6 +291,11 @@ function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(
 function money(n){ return n ? '£'+Number(n).toFixed(2) : ''; }
 function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
 function esc(s){ return String(s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ---------- sheets: open pushes a history entry so the phone's Back button closes the sheet, not the app ----------
+function openSheet(id){ $(id).classList.remove('hidden'); if(!(history.state&&history.state.sheet===id)) history.pushState({sheet:id},''); }
+function closeSheet(id){ if(history.state&&history.state.sheet===id) history.back(); else $(id).classList.add('hidden'); }
+window.addEventListener('popstate',()=>{ document.querySelectorAll('.sheet').forEach(x=>x.classList.add('hidden')); if(history.state&&history.state.sheet) $(history.state.sheet).classList.remove('hidden'); });
 
 // ---------- checks ----------
 function checks(j){
@@ -395,7 +401,7 @@ function openEdit(j){
   $('editTitle').textContent = j ? (j.reg||'Edit job') : 'New job';
   $('deleteBtn').classList.toggle('hidden', !j);
   liveWarns();
-  $('editSheet').classList.remove('hidden');
+  openSheet('editSheet');
   $('editSheet').querySelector('div').scrollTop = 0;
 }
 function readForm(){ const o={}; for(const k of F) o[k]=$(k).value.trim(); o.reg=o.reg.toUpperCase().replace(/\s+/g,' '); return o; }
@@ -410,10 +416,11 @@ $('saveBtn').onclick=()=>{
   o.expenses = editExp;
   if(editing){ const j=jobs.find(x=>x.id===editing); Object.assign(j,o); }
   else { jobs.push({id:uid(), created:Date.now(), ...o}); }
-  save(); $('editSheet').classList.add('hidden'); render(); toast('Saved');
+  save(); closeSheet('editSheet'); render(); toast('Saved');
 };
-$('deleteBtn').onclick=()=>{ if(confirm('Delete this job?')){ jobs=jobs.filter(x=>x.id!==editing); save(); $('editSheet').classList.add('hidden'); render(); } };
-$('editClose').onclick=()=>$('editSheet').classList.add('hidden');
+$('deleteBtn').onclick=()=>{ if(confirm('Delete this job?')){ jobs=jobs.filter(x=>x.id!==editing); save(); closeSheet('editSheet'); render(); } };
+$('editClose').onclick=()=>closeSheet('editSheet');
+$('cancelEditBtn').onclick=()=>closeSheet('editSheet');
 $('addBtn').onclick=()=>openEdit(null);
 
 function expTotal(j){ return (j.expenses||[]).reduce((a,e)=>a+Number(e.amount||0),0); }
@@ -432,15 +439,15 @@ $('exAdd').onclick=()=>{
 $('exAmt').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('exAdd').click(); } });
 
 let outKind='cancelled';
-function openOutcome(kind){ outKind=kind; $('outTitle').textContent = kind==='cancelled'?'Cancel job':'Abort job'; $('outReason').value=''; $('outPaid').value='0'; $('outSheet').classList.remove('hidden'); }
+function openOutcome(kind){ outKind=kind; $('outTitle').textContent = kind==='cancelled'?'Cancel job':'Abort job'; $('outReason').value=''; $('outPaid').value='0'; openSheet('outSheet'); }
 $('cancelJobBtn').onclick=()=>openOutcome('cancelled');
 $('abortJobBtn').onclick=()=>openOutcome('aborted');
-$('outClose').onclick=()=>$('outSheet').classList.add('hidden');
+$('outClose').onclick=()=>closeSheet('outSheet');
 $('outGo').onclick=()=>{
   const j=jobs.find(x=>x.id===editing); if(!j) return;
   Object.assign(j, readForm()); j.expenses=editExp;
   j.status=outKind; j.outcome={at:Date.now(), reason:$('outReason').value.trim(), paid:Number($('outPaid').value||0).toFixed(2)};
-  save(); $('outSheet').classList.add('hidden'); $('editSheet').classList.add('hidden'); render(); toast(outKind==='cancelled'?'Job cancelled':'Job aborted');
+  save(); $('outSheet').classList.add('hidden'); $('editSheet').classList.add('hidden'); if(history.state&&history.state.sheet) history.go(-2); render(); toast(outKind==='cancelled'?'Job cancelled':'Job aborted');
 };
 
 // ---------- money view ----------
@@ -596,13 +603,13 @@ function mkDate(y, mo, d, h, mi, now){
   }
   return dte;
 }
-$('pasteBtn').onclick=()=>{ $('pasteText').value=''; $('pasteSheet').classList.remove('hidden'); setTimeout(()=>$('pasteText').focus(),50); };
-$('pasteClose').onclick=()=>$('pasteSheet').classList.add('hidden');
+$('pasteBtn').onclick=()=>{ $('pasteText').value=''; openSheet('pasteSheet'); setTimeout(()=>$('pasteText').focus(),50); };
+$('pasteClose').onclick=()=>closeSheet('pasteSheet');
 $('pasteGo').onclick=()=>{
   const txt = $('pasteText').value;
   if(!txt.trim()){ toast('Nothing pasted yet'); return; }
   const o = parseJob(txt);
-  $('pasteSheet').classList.add('hidden');
+  $('pasteSheet').classList.add('hidden'); history.replaceState({sheet:'editSheet'},'');
   openEdit(null);
   for(const k of F) if(o[k]!==undefined) $(k).value = o[k];
   $('editTitle').textContent = 'Check the details';
@@ -640,8 +647,8 @@ function downloadFile(name, content, type){
 }
 
 // ---------- menu / backup ----------
-$('menuBtn').onclick=()=>{ $('storageNote').textContent = `${jobs.length} job${jobs.length===1?'':'s'} stored on this phone. Version ${VERSION}.`; $('menuSheet').classList.remove('hidden'); };
-$('menuClose').onclick=()=>$('menuSheet').classList.add('hidden');
+$('menuBtn').onclick=()=>{ $('storageNote').textContent = `${jobs.length} job${jobs.length===1?'':'s'} stored on this phone. Version ${VERSION}.`; openSheet('menuSheet'); };
+$('menuClose').onclick=()=>closeSheet('menuSheet');
 $('exportBtn').onclick=()=>downloadFile(`jobs-backup-${dayKey(new Date())}.json`, JSON.stringify(jobs,null,2), 'application/json');
 $('importBtn').onclick=()=>$('importFile').click();
 $('importFile').onchange=e=>{
@@ -649,7 +656,7 @@ $('importFile').onchange=e=>{
   const r=new FileReader();
   r.onload=()=>{ try{ const arr=JSON.parse(r.result); if(!Array.isArray(arr)) throw 0;
       let added=0; for(const j of arr){ if(j && j.id && !jobs.some(x=>x.id===j.id)){ jobs.push(j); added++; } }
-      save(); render(); $('menuSheet').classList.add('hidden'); toast(`Restored ${added} job${added===1?'':'s'}`);
+      save(); render(); closeSheet('menuSheet'); toast(`Restored ${added} job${added===1?'':'s'}`);
     }catch(err){ toast('That file is not a planner backup'); } };
   r.readAsText(f); e.target.value='';
 };
@@ -657,9 +664,9 @@ $('clearDone').onclick=()=>{
   const cut = Date.now()-7*864e5;
   const before = jobs.length;
   jobs = jobs.filter(j=> !(j.status==='done' && (dt(j.dPlan)||dt(j.dEnd)||new Date(j.created||0)) < cut));
-  save(); render(); toast(`Removed ${before-jobs.length}`); $('menuSheet').classList.add('hidden');
+  save(); render(); toast(`Removed ${before-jobs.length}`); closeSheet('menuSheet');
 };
-document.querySelectorAll('.sheet').forEach(s=>s.addEventListener('click',e=>{ if(e.target===s) s.classList.add('hidden'); }));
+document.querySelectorAll('.sheet').forEach(s=>s.addEventListener('click',e=>{ if(e.target===s) closeSheet(s.id); }));
 
 // ---------- boot ----------
 load(); render();
