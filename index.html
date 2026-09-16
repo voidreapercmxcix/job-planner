@@ -271,6 +271,7 @@ header h1 small{display:block;font-size:.85rem;font-weight:400;color:var(--ink2)
 <script>
 // ---------- storage ----------
 const KEY = 'jobs.v1';
+const VERSION = '0.7';
 let jobs = [];
 function load(){ try{ jobs = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ jobs = []; } }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(jobs)); }catch(e){ toast('Could not save. Storage may be full.'); } }
@@ -538,7 +539,13 @@ function parseJob(text){
   // vehicle: line right after the reg, or a line with a known make
   const makes = /\b(iveco|ford|mercedes|vauxhall|renault|peugeot|citroen|fiat|volkswagen|vw|nissan|toyota|man|daf|scania|volvo|isuzu|maxus|ldv)\b/i;
   const vl = lines.find(l=>makes.test(l) && !/[A-Z]{2}\d{2}\s?[A-Z]{3}/.test(l));
-  if(vl) o.vehicle = vl.replace(/^(vehicle|van)\s*[:\-]?\s*/i,'').replace(/\b([A-Z])([A-Z]+)\b/g,(m,a,b)=>/\d/.test(m)?m:a+b.toLowerCase());
+  if(vl){
+    let v = vl.replace(/^(vehicle|van)\s*[:\-]?\s*/i,'');
+    // vehicle joined onto the address line: vehicle is ALL CAPS, address is normal case, so cut at the first Title-case word
+    const cut = v.match(/^([A-Z0-9][A-Z0-9\s\-\/.]*?)\s+(?=[A-Z][a-z])/);
+    if(cut && /[A-Z][a-z]/.test(v.slice(cut[0].length))) v = cut[1].trim(); else if(/,/.test(v)) v = v.split(',')[0].trim();
+    o.vehicle = v.replace(/\b([A-Z])([A-Z]+)\b/g,(m,a,b)=>/\d/.test(m)?m:a+b.toLowerCase());
+  }
   else if(reg){ const i = lines.findIndex(l=>l.includes(reg[0])); if(i>=0 && lines[i+1] && !/\d{2}:\d{2}/.test(lines[i+1])) o.vehicle = lines[i+1]; }
 
   // dates: "Mon 14 Sep 11:00", "14 Sep 11:00", "14/09/2026 11:00", "14/09 11:00"
@@ -575,8 +582,10 @@ function parseJob(text){
   }
   const type = lines.find(l=>/insured|trade plate|transporter|driven/i.test(l) && !pc.test(l));
   if(type) o.notes = type;
-  if(addrs[0]) o.cFrom = addrs[0];
-  if(addrs[1]) o.dTo = addrs[1];
+  // belt and braces: if the reg, vehicle or job type ever sneak onto the front of an address, strip them
+  const strip = a => { let x=a; for(const t of [o.reg, o.reg&&o.reg.replace(' ',''), o.vehicle, o.vehicle&&o.vehicle.toUpperCase(), type]) if(t) x=x.replace(new RegExp('^\\s*'+t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\s*,?\\s*','i'),''); return x.replace(/^,\s*/,''); };
+  if(addrs[0]) o.cFrom = strip(addrs[0]);
+  if(addrs[1]) o.dTo = strip(addrs[1]);
   return o;
 }
 function mkDate(y, mo, d, h, mi, now){
@@ -631,7 +640,7 @@ function downloadFile(name, content, type){
 }
 
 // ---------- menu / backup ----------
-$('menuBtn').onclick=()=>{ $('storageNote').textContent = `${jobs.length} job${jobs.length===1?'':'s'} stored on this phone.`; $('menuSheet').classList.remove('hidden'); };
+$('menuBtn').onclick=()=>{ $('storageNote').textContent = `${jobs.length} job${jobs.length===1?'':'s'} stored on this phone. Version ${VERSION}.`; $('menuSheet').classList.remove('hidden'); };
 $('menuClose').onclick=()=>$('menuSheet').classList.add('hidden');
 $('exportBtn').onclick=()=>downloadFile(`jobs-backup-${dayKey(new Date())}.json`, JSON.stringify(jobs,null,2), 'application/json');
 $('importBtn').onclick=()=>$('importFile').click();
