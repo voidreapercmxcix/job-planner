@@ -49,16 +49,16 @@ Android works fully. iPhone can install it too, but iOS is stricter about web ap
 The parser is tolerant, but it was tuned on this layout:
 
 ```
-NV73OCL
+AB12CDE
 Driven Insured
-IVECO DAILY 35S14B
-Flex-E-Rent Edinburgh, 1 Drovers Road, Broxburn, 0, Edinburgh, EH52 5ND
+FORD TRANSIT 350 L3
+Example Vehicle Hire, 1 Sample Street, Anytown, 0, Anyshire, AB1 2CD
  Mon, 14th Sep 11:00 - Wed, 16th Sep 15:00
 7 hrs 1 min   330 miles
-Hudson Kapel Worcester, Church Lane, Norton, -, Worcester, WR5 2PR
+Example Motors, 2 Test Road, Otherton, -, Somewhere, XY9 8ZW
  Tue, 15th Sep 08:00 - Thu, 17th Sep 12:00
-J-A945-98DF
-£181.43 Total
+J-0000-0000
+£100.00 Total
 ```
 
 It looks for a UK reg, lines containing a postcode (first is collection, second is delivery), date-times in order (collection open, collection close, delivery open, delivery close), a miles figure, an hours figure, a `J-` style reference and a `£` amount. Placeholder fields like `0` and `-` are dropped. If your jobs app lays things out differently, the fields it misses can be typed in.
