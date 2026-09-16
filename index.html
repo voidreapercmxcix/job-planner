@@ -102,6 +102,33 @@ header h1 small{display:block;font-size:.85rem;font-weight:400;color:var(--ink2)
 .toast.show{opacity:1}
 .menu p{color:var(--ink2);font-size:.9rem;margin-bottom:12px}
 .menu .btn{width:100%;margin-bottom:8px;text-align:left}
+
+.money{flex:1;overflow-y:auto;padding:0 14px 20px}
+.periods{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;scrollbar-width:none}
+.periods .btn{flex:0 0 auto;min-height:40px;font-size:.9rem}
+.periods .btn.on{background:var(--amber);color:var(--amber-ink)}
+.sum{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.sum div{background:var(--panel);border-radius:var(--r);padding:10px 12px}
+.sum small{display:block;color:var(--ink2);font-size:.8rem}
+.sum b{font-size:1.25rem}
+.sum .neg{color:var(--red)} .sum .pos{color:var(--green)}
+.mrow{background:var(--panel);border-radius:12px;padding:10px 12px;margin-bottom:8px;display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center}
+.mrow .r{font-weight:700} .mrow .d{color:var(--ink2);font-size:.85rem;grid-column:1/-1}
+.mrow .st{font-size:.75rem;font-weight:700;padding:1px 7px;border-radius:6px;background:var(--panel2);color:var(--ink2);margin-left:6px}
+.mrow .st.x{background:#4d231c;color:var(--red)}
+.exlist{margin-bottom:8px}
+.exrow{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:.95rem}
+.exrow small{display:block;color:var(--ink3)}
+.exrow .btn{min-height:36px;padding:0 10px;font-size:.85rem}
+.exadd{display:grid;grid-template-columns:1.1fr .8fr 1fr auto;gap:6px;margin-bottom:10px}
+.exadd input,.exadd select{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:0 10px;min-height:44px;width:100%;color-scheme:dark}
+.exadd .btn{min-height:44px}
+.outcome .btn{width:100%;margin-bottom:8px}
+.chart{background:var(--panel);border-radius:var(--r);padding:10px 12px 6px;margin-bottom:12px}
+.chart h5{font-size:.85rem;color:var(--ink2);font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between}
+.chart svg{width:100%;height:auto;display:block}
+.chart .leg{display:flex;gap:12px;font-size:.78rem;color:var(--ink2);margin-top:4px}
+.leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
@@ -109,6 +136,7 @@ header h1 small{display:block;font-size:.85rem;font-weight:400;color:var(--ink2)
 
 <header>
   <h1>Jobs <small id="todayLabel"></small></h1>
+  <button class="btn ghost" id="viewBtn">Money</button>
   <button class="btn" id="pasteBtn">Paste job</button>
   <button class="btn primary icon" id="addBtn" aria-label="Add job">+</button>
   <button class="btn ghost icon" id="menuBtn" aria-label="Menu">⋯</button>
@@ -120,6 +148,32 @@ header h1 small{display:block;font-size:.85rem;font-weight:400;color:var(--ink2)
   <section class="col" data-status="todo"><h2>To collect <span id="n-todo"></span></h2><div class="list" id="l-todo"></div></section>
   <section class="col" data-status="onboard"><h2>On board <span id="n-onboard"></span></h2><div class="list" id="l-onboard"></div></section>
   <section class="col" data-status="done"><h2>Delivered <span id="n-done"></span></h2><div class="list" id="l-done"></div></section>
+</div>
+
+<div class="money hidden" id="money">
+  <div class="periods">
+    <button class="btn on" data-p="week">This week</button>
+    <button class="btn" data-p="lastweek">Last week</button>
+    <button class="btn" data-p="month">This month</button>
+    <button class="btn" data-p="tax">Tax year</button>
+    <button class="btn" data-p="all">All</button>
+  </div>
+  <div class="sum" id="sum"></div>
+  <div class="chart" id="ch1"></div>
+  <div class="chart" id="ch2"></div>
+  <div id="mlist"></div>
+  <div class="foot"><button class="btn" id="csvBtn">Export CSV for this period</button></div>
+</div>
+
+<!-- Outcome sheet (cancel / abort) -->
+<div class="sheet hidden" id="outSheet" style="z-index:11">
+  <div class="outcome">
+    <h3><span id="outTitle">Cancel job</span><button class="btn ghost" id="outClose">Close</button></h3>
+    <div class="f"><label for="outReason">Reason</label><textarea id="outReason" style="min-height:80px" placeholder="What happened"></textarea></div>
+    <div class="f"><label for="outPaid">Paid for it anyway (£, 0 if nothing)</label><input id="outPaid" type="number" inputmode="decimal" step="0.01" value="0"></div>
+    <p class="note">It comes off the board but stays in Money, with any expenses you logged.</p>
+    <button class="btn danger" id="outGo">Confirm</button>
+  </div>
 </div>
 
 <!-- Edit sheet -->
@@ -158,11 +212,27 @@ header h1 small{display:block;font-size:.85rem;font-weight:400;color:var(--ink2)
     </div>
     <div class="row">
       <div class="f"><label for="pay">Pay (£)</label><input id="pay" type="number" inputmode="decimal" step="0.01"></div>
-      <div class="f"><label for="status">Stage</label><select id="status"><option value="todo">To collect</option><option value="onboard">On board</option><option value="done">Delivered</option></select></div>
+      <div class="f"><label for="status">Stage</label><select id="status"><option value="todo">To collect</option><option value="onboard">On board</option><option value="done">Delivered</option><option value="cancelled">Cancelled</option><option value="aborted">Aborted</option></select></div>
     </div>
     <div class="f"><label for="notes">Notes</label><textarea id="notes" style="min-height:70px" placeholder="Gate codes, contact names, anything you need on site"></textarea></div>
 
+    <div class="grp">
+      <h4>Expenses</h4>
+      <div class="exlist" id="exlist"></div>
+      <div class="exadd">
+        <select id="exType"><option>Fuel</option><option>Train</option><option>Bus</option><option>Taxi</option><option>Tolls</option><option>Parking</option><option>Food</option><option>Other</option></select>
+        <input id="exAmt" type="number" inputmode="decimal" step="0.01" placeholder="£">
+        <input id="exNote" placeholder="Note">
+        <button class="btn" id="exAdd">Add</button>
+      </div>
+    </div>
+    <div class="f hidden" id="outcomeBox"><label>Outcome</label><div class="note" id="outcomeText" style="margin:0"></div></div>
+
     <div class="warns" id="editWarns"></div>
+    <div class="foot" id="outcomeBtns">
+      <button class="btn" id="cancelJobBtn">Cancel job</button>
+      <button class="btn" id="abortJobBtn">Abort job</button>
+    </div>
     <div class="foot">
       <button class="btn danger hidden" id="deleteBtn">Delete</button>
       <button class="btn primary" id="saveBtn">Save job</button>
@@ -260,6 +330,8 @@ function jobDays(j){
 
 // ---------- render board ----------
 function render(){
+  $('board').classList.toggle('hidden', view!=='board'); $('days').classList.toggle('hidden', view!=='board'); $('money').classList.toggle('hidden', view!=='money');
+  if(view==='money'){ renderMoney(); return; }
   buildDays();
   $('todayLabel').textContent = fmt(new Date()).slice(0,-6);
   for(const st of ['todo','onboard','done']){
@@ -291,7 +363,7 @@ function card(j){
     ${stopHtml('C', j.cFrom, j.cPlan, j.cStart, j.cEnd)}
     ${stopHtml('D', j.dTo, j.dPlan, j.dStart, j.dEnd)}
     ${w.map(x=>`<span class="flag ${x.l}">${esc(x.t)}</span>`).join('')}
-    <div class="meta">${[j.ref, j.miles?j.miles+' mi':'', j.hours?j.hours+' h drive':''].filter(Boolean).join(' · ')}${j.notes?'<br>'+esc(j.notes):''}</div>
+    <div class="meta">${[j.ref, j.miles?j.miles+' mi':'', j.hours?j.hours+' h drive':'', expTotal(j)?'exp '+money(expTotal(j)):''].filter(Boolean).join(' · ')}${j.notes?'<br>'+esc(j.notes):''}</div>
     <div class="acts">
       ${next?`<button class="btn primary" data-a="next">${next[1]}</button>`:`<button class="btn" data-a="back">Back to on board</button>`}
       <button class="btn" data-a="cal">Calendar</button>
@@ -306,11 +378,16 @@ function card(j){
 
 // ---------- edit sheet ----------
 const F = ['reg','ref','vehicle','cFrom','cStart','cEnd','cPlan','dTo','dStart','dEnd','dPlan','miles','hours','pay','status','notes'];
-let editing = null;
+let editing = null; let editExp = [];
 function openEdit(j){
   editing = j ? j.id : null;
   const v = j || {status:'todo'};
   for(const k of F) $(k).value = v[k] ?? '';
+  editExp = (v.expenses||[]).map(e=>({...e})); renderExp();
+  const oc = v.outcome; $('outcomeBox').classList.toggle('hidden', !oc);
+  if(oc) $('outcomeText').textContent = `${v.status==='cancelled'?'Cancelled':'Aborted'} on ${fmt(new Date(oc.at))}. ${oc.reason||''} Paid ${money(oc.paid)||'£0.00'}.`;
+  $('outcomeBtns').classList.toggle('hidden', !j || j.status==='done' || !!oc);
+  $('abortJobBtn').classList.toggle('hidden', !j || j.status!=='onboard');
   $('editTitle').textContent = j ? (j.reg||'Edit job') : 'New job';
   $('deleteBtn').classList.toggle('hidden', !j);
   liveWarns();
@@ -326,6 +403,7 @@ F.forEach(k=>$(k).addEventListener('input',liveWarns));
 $('saveBtn').onclick=()=>{
   const o = readForm();
   if(!o.reg && !o.cFrom && !o.dTo){ toast('Add at least a reg or an address'); return; }
+  o.expenses = editExp;
   if(editing){ const j=jobs.find(x=>x.id===editing); Object.assign(j,o); }
   else { jobs.push({id:uid(), created:Date.now(), ...o}); }
   save(); $('editSheet').classList.add('hidden'); render(); toast('Saved');
@@ -333,6 +411,111 @@ $('saveBtn').onclick=()=>{
 $('deleteBtn').onclick=()=>{ if(confirm('Delete this job?')){ jobs=jobs.filter(x=>x.id!==editing); save(); $('editSheet').classList.add('hidden'); render(); } };
 $('editClose').onclick=()=>$('editSheet').classList.add('hidden');
 $('addBtn').onclick=()=>openEdit(null);
+
+function expTotal(j){ return (j.expenses||[]).reduce((a,e)=>a+Number(e.amount||0),0); }
+function renderExp(){
+  const el=$('exlist');
+  el.innerHTML = editExp.length ? editExp.map(e=>`<div class="exrow"><div>${esc(e.type)}${e.note?`<small>${esc(e.note)}</small>`:''}</div><b>${money(e.amount)}</b><button class="btn" data-x="${e.id}">Remove</button></div>`).join('')
+    + `<div class="exrow" style="border-top:2px solid var(--line)"><div>Total</div><b>${money(editExp.reduce((a,e)=>a+Number(e.amount||0),0))||'£0.00'}</b><span></span></div>`
+    : '<div class="note" style="margin:0 0 6px">No expenses logged.</div>';
+  el.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{ editExp=editExp.filter(e=>e.id!==b.dataset.x); renderExp(); });
+}
+$('exAdd').onclick=()=>{
+  const amt=Number($('exAmt').value); if(!amt){ toast('Put an amount in'); return; }
+  editExp.push({id:uid(), type:$('exType').value, amount:amt.toFixed(2), note:$('exNote').value.trim(), at:Date.now()});
+  $('exAmt').value=''; $('exNote').value=''; renderExp();
+};
+$('exAmt').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('exAdd').click(); } });
+
+let outKind='cancelled';
+function openOutcome(kind){ outKind=kind; $('outTitle').textContent = kind==='cancelled'?'Cancel job':'Abort job'; $('outReason').value=''; $('outPaid').value='0'; $('outSheet').classList.remove('hidden'); }
+$('cancelJobBtn').onclick=()=>openOutcome('cancelled');
+$('abortJobBtn').onclick=()=>openOutcome('aborted');
+$('outClose').onclick=()=>$('outSheet').classList.add('hidden');
+$('outGo').onclick=()=>{
+  const j=jobs.find(x=>x.id===editing); if(!j) return;
+  Object.assign(j, readForm()); j.expenses=editExp;
+  j.status=outKind; j.outcome={at:Date.now(), reason:$('outReason').value.trim(), paid:Number($('outPaid').value||0).toFixed(2)};
+  save(); $('outSheet').classList.add('hidden'); $('editSheet').classList.add('hidden'); render(); toast(outKind==='cancelled'?'Job cancelled':'Job aborted');
+};
+
+// ---------- money view ----------
+let view='board', period='week';
+$('viewBtn').onclick=()=>{ view = view==='board'?'money':'board'; $('viewBtn').textContent = view==='board'?'Money':'Board'; render(); };
+document.querySelectorAll('.periods .btn').forEach(b=>b.onclick=()=>{ period=b.dataset.p; document.querySelectorAll('.periods .btn').forEach(x=>x.classList.toggle('on',x===b)); renderMoney(); });
+function jobDate(j){ return dt(j.dPlan)||dt(j.dEnd)||dt(j.cPlan)||dt(j.cStart)||new Date(j.created||0); }
+function earned(j){ return j.status==='done' ? Number(j.pay||0) : (j.outcome ? Number(j.outcome.paid||0) : 0); }
+function periodRange(){
+  const now=new Date(); now.setHours(0,0,0,0);
+  const monday=d=>{ const x=new Date(d); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x; };
+  if(period==='week'){ const a=monday(now); const b=new Date(a); b.setDate(b.getDate()+7); return [a,b]; }
+  if(period==='lastweek'){ const b=monday(now); const a=new Date(b); a.setDate(a.getDate()-7); return [a,b]; }
+  if(period==='month') return [new Date(now.getFullYear(),now.getMonth(),1), new Date(now.getFullYear(),now.getMonth()+1,1)];
+  if(period==='tax'){ let y=now.getFullYear(); if(now < new Date(y,3,6)) y--; return [new Date(y,3,6), new Date(y+1,3,6)]; }
+  return [new Date(0), new Date(8.64e15)];
+}
+function renderMoney(){
+  const [a,b]=periodRange();
+  const list=jobs.filter(j=>{ const d=jobDate(j); return d>=a && d<b && j.status!=='todo' && j.status!=='onboard'; }).sort((x,y)=>jobDate(y)-jobDate(x));
+  const earn=list.reduce((t,j)=>t+earned(j),0), spent=list.reduce((t,j)=>t+expTotal(j),0), miles=list.filter(j=>j.status==='done').reduce((t,j)=>t+Number(j.miles||0),0);
+  const done=list.filter(j=>j.status==='done').length, lost=list.length-done;
+  $('sum').innerHTML=`<div><small>Earned</small><b class="pos">${money(earn)||'£0.00'}</b></div><div><small>Expenses</small><b class="neg">${money(spent)||'£0.00'}</b></div>
+    <div><small>Net</small><b>${money(earn-spent)||'£0.00'}</b></div><div><small>Jobs</small><b>${done}</b> <small style="display:inline">delivered${lost?`, ${lost} cancelled/aborted`:''} · ${miles} mi</small></div>`;
+  renderCharts(list, a, b);
+  $('mlist').innerHTML = list.length ? list.map(j=>`<div class="mrow" data-id="${j.id}"><div><span class="r">${esc(j.reg||j.ref||'Job')}</span>${j.status!=='done'?`<span class="st x">${j.status}</span>`:''}</div><div><b class="pos">${money(earned(j))||'£0'}</b>${expTotal(j)?` <span class="neg">−${money(expTotal(j))}</span>`:''}</div>
+    <div class="d">${fmt(jobDate(j)).slice(0,-6)} · ${esc((j.cFrom||'').split(',')[0])} → ${esc((j.dTo||'').split(',')[0])}${j.miles?` · ${j.miles} mi`:''}</div></div>`).join('')
+    : '<div class="empty">No finished jobs in this period.</div>';
+  $('mlist').querySelectorAll('.mrow').forEach(r=>r.onclick=()=>openEdit(jobs.find(j=>j.id===r.dataset.id)));
+}
+function renderCharts(list, a, b){
+  // --- chart 1: earned vs expenses over time, bucketed to suit the period ---
+  const buckets=[]; const mode = (period==='week'||period==='lastweek') ? 'day' : period==='month' ? 'week' : 'month';
+  let start = list.length && period==='all' ? new Date(Math.min(...list.map(jobDate))) : new Date(a);
+  let end = period==='all' ? new Date() : new Date(Math.min(b, Date.now()+864e5));
+  start.setHours(0,0,0,0);
+  if(mode==='week') start.setDate(start.getDate()-((start.getDay()+6)%7));
+  if(mode==='month') start.setDate(1);
+  for(let d=new Date(start), n=0; d<end && n<60; n++){
+    const e=new Date(d); if(mode==='day') e.setDate(e.getDate()+1); else if(mode==='week') e.setDate(e.getDate()+7); else e.setMonth(e.getMonth()+1);
+    const lab = mode==='day' ? DAYS[d.getDay()] : mode==='week' ? d.getDate()+' '+MONS[d.getMonth()] : MONS[d.getMonth()]+(period==='all'?' '+String(d.getFullYear()).slice(2):'');
+    buckets.push({s:d, e, lab, earn:0, spend:0}); d=e;
+  }
+  for(const j of list){ const d=jobDate(j); const k=buckets.find(k=>d>=k.s&&d<k.e); if(k){ k.earn+=earned(j); k.spend+=expTotal(j); } }
+  const W=360,H=150,pl=34,pb=22,pt=8; const max=Math.max(1,...buckets.map(k=>Math.max(k.earn,k.spend)));
+  const nice=Math.pow(10,Math.floor(Math.log10(max))); const top=Math.ceil(max/nice)*nice;
+  const y=v=>pt+(H-pt-pb)*(1-v/top); const bw=(W-pl-4)/Math.max(1,buckets.length);
+  let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Earnings and expenses over time">`;
+  for(let i=0;i<=2;i++){ const v=top*i/2; svg+=`<line x1="${pl}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${pl-4}" y="${y(v)+4}" text-anchor="end" font-size="10" fill="var(--ink3)">£${v>=1000?(v/1000)+'k':v}</text>`; }
+  buckets.forEach((k,i)=>{ const x=pl+i*bw+2, w=Math.max(2,(bw-6)/2);
+    svg+=`<rect x="${x}" y="${y(k.earn)}" width="${w}" height="${y(0)-y(k.earn)}" rx="2" fill="var(--green)"/><rect x="${x+w+1}" y="${y(k.spend)}" width="${w}" height="${y(0)-y(k.spend)}" rx="2" fill="var(--red)"/>`;
+    if(buckets.length<=14 || i%Math.ceil(buckets.length/12)===0) svg+=`<text x="${x+w}" y="${H-6}" text-anchor="middle" font-size="9.5" fill="var(--ink2)">${k.lab}</text>`; });
+  svg+='</svg>';
+  const net=list.reduce((t,j)=>t+earned(j)-expTotal(j),0);
+  $('ch1').innerHTML=`<h5><span>Earned vs spent by ${mode}</span><span>net ${money(net)||'£0.00'}</span></h5>${svg}<div class="leg"><span><i style="background:var(--green)"></i>Earned</span><span><i style="background:var(--red)"></i>Expenses</span></div>`;
+
+  // --- chart 2: where the money goes, by expense type ---
+  const by={}; for(const j of list) for(const e of (j.expenses||[])) by[e.type]=(by[e.type]||0)+Number(e.amount||0);
+  const rows=Object.entries(by).sort((x,y)=>y[1]-x[1]); const tot=rows.reduce((t,r)=>t+r[1],0);
+  if(!rows.length){ $('ch2').innerHTML='<h5><span>Expenses by type</span></h5><div class="note" style="margin:0 0 4px">Nothing logged yet.</div>'; return; }
+  const rh=22, H2=rows.length*rh+4, mx=rows[0][1];
+  let s2=`<svg viewBox="0 0 ${W} ${H2}" role="img" aria-label="Expenses by type">`;
+  rows.forEach(([t,v],i)=>{ const yy=i*rh+2, w=Math.max(2,(W-150)*v/mx);
+    s2+=`<text x="0" y="${yy+15}" font-size="11" fill="var(--ink)">${esc(t)}</text><rect x="70" y="${yy+4}" width="${w}" height="${rh-8}" rx="3" fill="var(--amber)"/><text x="${76+w}" y="${yy+15}" font-size="11" fill="var(--ink2)">${money(v)} · ${Math.round(100*v/tot)}%</text>`; });
+  s2+='</svg>';
+  const perMile = list.filter(j=>j.status==='done').reduce((t,j)=>t+Number(j.miles||0),0);
+  $('ch2').innerHTML=`<h5><span>Expenses by type</span><span>${perMile?`${(net/perMile).toFixed(2)} £/mile net`:''}</span></h5>${s2}`;
+}
+$('csvBtn').onclick=()=>{
+  const [a,b]=periodRange();
+  const list=jobs.filter(j=>{ const d=jobDate(j); return d>=a && d<b && j.status!=='todo' && j.status!=='onboard'; }).sort((x,y)=>jobDate(x)-jobDate(y));
+  const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const rows=[['Date','Reg','Job ref','Status','Collect from','Deliver to','Miles','Earned','Expenses','Net','Expense detail','Outcome'].map(q).join(',')];
+  for(const j of list){
+    const det=(j.expenses||[]).map(e=>`${e.type} ${e.amount}${e.note?' ('+e.note+')':''}`).join('; ');
+    rows.push([dayKey(jobDate(j)),j.reg,j.ref,j.status,j.cFrom,j.dTo,j.miles,earned(j).toFixed(2),expTotal(j).toFixed(2),(earned(j)-expTotal(j)).toFixed(2),det,j.outcome?j.outcome.reason:''].map(q).join(','));
+  }
+  downloadFile(`jobs-${period}-${dayKey(new Date())}.csv`, rows.join('\r\n'), 'text/csv');
+};
 
 // ---------- paste parser ----------
 function parseJob(text){
