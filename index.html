@@ -179,6 +179,16 @@ header h1 small{display:block;font-size:.85rem;font-weight:400;color:var(--ink2)
   </div>
 </div>
 
+<!-- Odometer sheet -->
+<div class="sheet hidden" id="odoSheet" style="z-index:11">
+  <div>
+    <h3><span id="odoTitle">Odometer at collection</span><button class="btn ghost" id="odoClose">Close</button></h3>
+    <div class="f"><label for="odoVal">Reading on the dash (miles)</label><input id="odoVal" type="number" inputmode="numeric" placeholder="e.g. 48213"></div>
+    <p class="note" id="odoNote"></p>
+    <div class="foot"><button class="btn" id="odoSkip">Skip</button><button class="btn primary" id="odoGo">Save</button></div>
+  </div>
+</div>
+
 <!-- Edit sheet -->
 <div class="sheet hidden" id="editSheet">
   <div>
@@ -212,6 +222,15 @@ header h1 small{display:block;font-size:.85rem;font-weight:400;color:var(--ink2)
     <div class="row">
       <div class="f"><label for="miles">Miles</label><input id="miles" type="number" inputmode="decimal"></div>
       <div class="f"><label for="hours">Drive hours</label><input id="hours" type="number" inputmode="decimal" step="0.25"></div>
+    </div>
+    <div class="grp">
+      <h4>Mileage</h4>
+      <div class="row">
+        <div class="f"><label for="odoStart">Odometer at collection</label><input id="odoStart" type="number" inputmode="numeric"></div>
+        <div class="f"><label for="odoEnd">Odometer at delivery</label><input id="odoEnd" type="number" inputmode="numeric"></div>
+      </div>
+      <div class="f"><label for="ownMiles">Own-vehicle miles for this job (getting there, getting home)</label><input id="ownMiles" type="number" inputmode="decimal"></div>
+      <p class="note" id="mileNote" style="margin:-4px 0 10px"></p>
     </div>
     <div class="row">
       <div class="f"><label for="pay">Pay (£)</label><input id="pay" type="number" inputmode="decimal" step="0.01"></div>
@@ -263,6 +282,7 @@ header h1 small{display:block;font-size:.85rem;font-weight:400;color:var(--ink2)
     <button class="btn" id="importBtn">Restore from backup</button>
     <input type="file" id="importFile" accept="application/json" class="hidden">
     <button class="btn" id="clearDone">Remove delivered jobs older than 7 days</button>
+    <div class="f" style="margin-top:10px"><label for="rate">Own-vehicle mileage rate (£ per mile, HMRC is 0.45 up to 10,000 miles then 0.25)</label><input id="rate" type="number" step="0.01" inputmode="decimal"></div>
     <p id="storageNote" style="margin-top:8px"></p>
   </div>
 </div>
@@ -272,7 +292,7 @@ header h1 small{display:block;font-size:.85rem;font-weight:400;color:var(--ink2)
 <script>
 // ---------- storage ----------
 const KEY = 'jobs.v1';
-const VERSION = '0.8';
+const VERSION = '0.9';
 let jobs = [];
 function load(){ try{ jobs = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ jobs = []; } }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(jobs)); }catch(e){ toast('Could not save. Storage may be full.'); } }
@@ -311,6 +331,7 @@ function checks(j){
     if(gap < Number(j.hours)) out.push({l:'r', t:`Only ${gap.toFixed(1)} h between collect and deliver, drive is ${j.hours} h`});
   }
   if(cp && ce && !out.some(o=>o.l==='r') && (ce-cp) < 2*36e5 && cp<=ce) out.push({l:'a', t:'Collecting less than 2 h before the window closes'});
+  const inf=inflation(j); if(inf>0 && j.miles && inf/Number(j.miles) > 0.1) out.push({l:'a', t:`Quote is ${inf} mi over the actual ${actualMiles(j)}`});
   return out;
 }
 
@@ -373,13 +394,13 @@ function card(j){
     ${stopHtml('C', j.cFrom, j.cPlan, j.cStart, j.cEnd)}
     ${stopHtml('D', j.dTo, j.dPlan, j.dStart, j.dEnd)}
     ${w.map(x=>`<span class="flag ${x.l}">${esc(x.t)}</span>`).join('')}
-    <div class="meta">${[j.ref, j.miles?j.miles+' mi':'', j.hours?j.hours+' h drive':'', expTotal(j)?'exp '+money(expTotal(j)):''].filter(Boolean).join(' · ')}${j.notes?'<br>'+esc(j.notes):''}</div>
+    <div class="meta">${[j.ref, j.miles?j.miles+' mi quoted':'', actualMiles(j)!==null?actualMiles(j)+' actual':'', j.ownMiles?j.ownMiles+' own':'', j.hours?j.hours+' h drive':'', expTotal(j)?'exp '+money(expTotal(j)):''].filter(Boolean).join(' · ')}${j.notes?'<br>'+esc(j.notes):''}</div>
     <div class="acts">
       ${next?`<button class="btn primary" data-a="next">${next[1]}</button>`:`<button class="btn" data-a="back">Back to on board</button>`}
       <button class="btn" data-a="cal">Calendar</button>
       <button class="btn" data-a="edit">Edit</button>
     </div>`;
-  d.querySelector('[data-a="next"]')?.addEventListener('click',()=>{ j.status=next[0]; save(); render(); toast(next[1]); });
+  d.querySelector('[data-a="next"]')?.addEventListener('click',()=>askOdo(j, next[0]));
   d.querySelector('[data-a="back"]')?.addEventListener('click',()=>{ j.status='onboard'; save(); render(); });
   d.querySelector('[data-a="cal"]').addEventListener('click',()=>calendar(j));
   d.querySelector('[data-a="edit"]').addEventListener('click',()=>openEdit(j));
@@ -387,7 +408,7 @@ function card(j){
 }
 
 // ---------- edit sheet ----------
-const F = ['reg','ref','vehicle','cFrom','cStart','cEnd','cPlan','dTo','dStart','dEnd','dPlan','miles','hours','pay','status','notes'];
+const F = ['reg','ref','vehicle','cFrom','cStart','cEnd','cPlan','dTo','dStart','dEnd','dPlan','miles','hours','pay','status','notes','odoStart','odoEnd','ownMiles'];
 let editing = null; let editExp = [];
 function openEdit(j){
   editing = j ? j.id : null;
@@ -406,7 +427,9 @@ function openEdit(j){
 }
 function readForm(){ const o={}; for(const k of F) o[k]=$(k).value.trim(); o.reg=o.reg.toUpperCase().replace(/\s+/g,' '); return o; }
 function liveWarns(){
-  const w = checks(readForm());
+  const f=readForm(); const m=actualMiles(f);
+  $('mileNote').textContent = m!==null ? `Actual ${m} mi${f.miles?` against ${f.miles} quoted (${inflation(f)>0?'+':''}${inflation(f)} on the quote)`:''}.` : 'Actual miles are worked out from the two readings.';
+  const w = checks(f);
   $('editWarns').innerHTML = w.map(x=>`<div class="${x.l}">${esc(x.t)}</div>`).join('');
 }
 F.forEach(k=>$(k).addEventListener('input',liveWarns));
@@ -423,6 +446,12 @@ $('editClose').onclick=()=>closeSheet('editSheet');
 $('cancelEditBtn').onclick=()=>closeSheet('editSheet');
 $('addBtn').onclick=()=>openEdit(null);
 
+function actualMiles(j){ const a=Number(j.odoStart), b=Number(j.odoEnd); return (j.odoStart&&j.odoEnd&&b>a) ? b-a : null; }
+function milesFor(j){ const m=actualMiles(j); return m!==null ? m : Number(j.miles||0); }
+function inflation(j){ const m=actualMiles(j); return (m!==null && j.miles) ? Number(j.miles)-m : 0; }
+let settings={rate:0.45}; try{ Object.assign(settings, JSON.parse(localStorage.getItem('jobs.settings'))||{}); }catch(e){}
+function saveSettings(){ try{ localStorage.setItem('jobs.settings', JSON.stringify(settings)); }catch(e){} }
+function ownAllowance(j){ return Number(j.ownMiles||0)*Number(settings.rate||0); }
 function expTotal(j){ return (j.expenses||[]).reduce((a,e)=>a+Number(e.amount||0),0); }
 function renderExp(){
   const el=$('exlist');
@@ -450,6 +479,28 @@ $('outGo').onclick=()=>{
   save(); $('outSheet').classList.add('hidden'); $('editSheet').classList.add('hidden'); if(history.state&&history.state.sheet) history.go(-2); render(); toast(outKind==='cancelled'?'Job cancelled':'Job aborted');
 };
 
+let odoJob=null, odoNext=null;
+function askOdo(j, nextStatus){
+  odoJob=j; odoNext=nextStatus;
+  const atCollect = nextStatus==='onboard';
+  $('odoTitle').textContent = atCollect ? 'Odometer at collection' : 'Odometer at delivery';
+  $('odoVal').value = atCollect ? (j.odoStart||'') : (j.odoEnd||'');
+  $('odoNote').textContent = atCollect ? 'Read it off the dash before you set off.' : (j.odoStart ? `Collected at ${j.odoStart}. Quoted ${j.miles||'?'} miles.` : 'No collection reading was taken, so actual miles can\'t be worked out for this job.');
+  openSheet('odoSheet'); setTimeout(()=>$('odoVal').focus(),50);
+}
+function finishOdo(val){
+  const j=odoJob; if(!j) return;
+  if(val!=='' && val!==null){ if(odoNext==='onboard'){ j.odoStart=val; j.odoStartAt=Date.now(); } else { j.odoEnd=val; j.odoEndAt=Date.now(); } }
+  j.status=odoNext; save(); closeSheet('odoSheet'); render();
+  const m=actualMiles(j); toast(odoNext==='onboard' ? 'Collected' : (m!==null ? `Delivered · ${m} actual mi` : 'Delivered'));
+}
+$('odoGo').onclick=()=>{ const v=$('odoVal').value.trim(); if(v==='') { toast('Type the reading or tap Skip'); return; }
+  if(odoNext==='done' && odoJob.odoStart && Number(v) < Number(odoJob.odoStart)){ toast('That\'s lower than the collection reading'); return; } finishOdo(v); };
+$('odoSkip').onclick=()=>finishOdo(null);
+$('odoClose').onclick=()=>closeSheet('odoSheet');
+$('odoVal').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('odoGo').click(); } });
+$('rate').value = settings.rate; $('rate').addEventListener('change',()=>{ settings.rate=Number($('rate').value||0); saveSettings(); });
+
 // ---------- money view ----------
 let view='board', period='week';
 $('viewBtn').onclick=()=>{ view = view==='board'?'money':'board'; $('viewBtn').textContent = view==='board'?'Money':'Board'; render(); };
@@ -468,13 +519,14 @@ function periodRange(){
 function renderMoney(){
   const [a,b]=periodRange();
   const list=jobs.filter(j=>{ const d=jobDate(j); return d>=a && d<b && j.status!=='todo' && j.status!=='onboard'; }).sort((x,y)=>jobDate(y)-jobDate(x));
-  const earn=list.reduce((t,j)=>t+earned(j),0), spent=list.reduce((t,j)=>t+expTotal(j),0), miles=list.filter(j=>j.status==='done').reduce((t,j)=>t+Number(j.miles||0),0);
+  const earn=list.reduce((t,j)=>t+earned(j),0), spent=list.reduce((t,j)=>t+expTotal(j),0), done_=list.filter(j=>j.status==='done'), miles=done_.reduce((t,j)=>t+milesFor(j),0), quoted=done_.reduce((t,j)=>t+Number(j.miles||0),0), infl=done_.reduce((t,j)=>t+inflation(j),0), own=list.reduce((t,j)=>t+Number(j.ownMiles||0),0), allow=list.reduce((t,j)=>t+ownAllowance(j),0);
   const done=list.filter(j=>j.status==='done').length, lost=list.length-done;
   $('sum').innerHTML=`<div><small>Earned</small><b class="pos">${money(earn)||'£0.00'}</b></div><div><small>Expenses</small><b class="neg">${money(spent)||'£0.00'}</b></div>
-    <div><small>Net</small><b>${money(earn-spent)||'£0.00'}</b></div><div><small>Jobs</small><b>${done}</b> <small style="display:inline">delivered${lost?`, ${lost} cancelled/aborted`:''} · ${miles} mi</small></div>`;
+    <div><small>Net</small><b>${money(earn-spent)||'£0.00'}</b></div><div><small>Jobs</small><b>${done}</b> <small style="display:inline">delivered${lost?`, ${lost} cancelled/aborted`:''}</small></div>
+    <div><small>Miles driven</small><b>${miles}</b> <small style="display:inline">${infl>0?`quotes over by ${infl}`:quoted&&miles?`${quoted} quoted`:''}</small></div><div><small>Own vehicle</small><b>${own} mi</b> <small style="display:inline">${allow?`= ${money(allow)} at ${settings.rate}/mi`:''}</small></div>`;
   renderCharts(list, a, b);
   $('mlist').innerHTML = list.length ? list.map(j=>`<div class="mrow" data-id="${j.id}"><div><span class="r">${esc(j.reg||j.ref||'Job')}</span>${j.status!=='done'?`<span class="st x">${j.status}</span>`:''}</div><div><b class="pos">${money(earned(j))||'£0'}</b>${expTotal(j)?` <span class="neg">−${money(expTotal(j))}</span>`:''}</div>
-    <div class="d">${fmt(jobDate(j)).slice(0,-6)} · ${esc((j.cFrom||'').split(',')[0])} → ${esc((j.dTo||'').split(',')[0])}${j.miles?` · ${j.miles} mi`:''}</div></div>`).join('')
+    <div class="d">${fmt(jobDate(j)).slice(0,-6)} · ${esc((j.cFrom||'').split(',')[0])} → ${esc((j.dTo||'').split(',')[0])}${actualMiles(j)!==null?` · ${actualMiles(j)} mi`:j.miles?` · ${j.miles} mi (quoted)`:''}</div></div>`).join('')
     : '<div class="empty">No finished jobs in this period.</div>';
   $('mlist').querySelectorAll('.mrow').forEach(r=>r.onclick=()=>openEdit(jobs.find(j=>j.id===r.dataset.id)));
 }
@@ -513,17 +565,17 @@ function renderCharts(list, a, b){
   rows.forEach(([t,v],i)=>{ const yy=i*rh+2, w=Math.max(2,(W-150)*v/mx);
     s2+=`<text x="0" y="${yy+15}" font-size="11" fill="var(--ink)">${esc(t)}</text><rect x="70" y="${yy+4}" width="${w}" height="${rh-8}" rx="3" fill="var(--amber)"/><text x="${76+w}" y="${yy+15}" font-size="11" fill="var(--ink2)">${money(v)} · ${Math.round(100*v/tot)}%</text>`; });
   s2+='</svg>';
-  const perMile = list.filter(j=>j.status==='done').reduce((t,j)=>t+Number(j.miles||0),0);
+  const perMile = list.filter(j=>j.status==='done').reduce((t,j)=>t+milesFor(j),0);
   $('ch2').innerHTML=`<h5><span>Expenses by type</span><span>${perMile?`${(net/perMile).toFixed(2)} £/mile net`:''}</span></h5>${s2}`;
 }
 $('csvBtn').onclick=()=>{
   const [a,b]=periodRange();
   const list=jobs.filter(j=>{ const d=jobDate(j); return d>=a && d<b && j.status!=='todo' && j.status!=='onboard'; }).sort((x,y)=>jobDate(x)-jobDate(y));
   const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
-  const rows=[['Date','Reg','Job ref','Status','Collect from','Deliver to','Miles','Earned','Expenses','Net','Expense detail','Outcome'].map(q).join(',')];
+  const rows=[['Date','Reg','Job ref','Status','Collect from','Deliver to','Quoted miles','Odo start','Odo end','Actual miles','Own-vehicle miles','Own-vehicle allowance','Earned','Expenses','Net','Expense detail','Outcome'].map(q).join(',')];
   for(const j of list){
     const det=(j.expenses||[]).map(e=>`${e.type} ${e.amount}${e.note?' ('+e.note+')':''}`).join('; ');
-    rows.push([dayKey(jobDate(j)),j.reg,j.ref,j.status,j.cFrom,j.dTo,j.miles,earned(j).toFixed(2),expTotal(j).toFixed(2),(earned(j)-expTotal(j)).toFixed(2),det,j.outcome?j.outcome.reason:''].map(q).join(','));
+    rows.push([dayKey(jobDate(j)),j.reg,j.ref,j.status,j.cFrom,j.dTo,j.miles,j.odoStart,j.odoEnd,actualMiles(j)??'',j.ownMiles,ownAllowance(j).toFixed(2),earned(j).toFixed(2),expTotal(j).toFixed(2),(earned(j)-expTotal(j)).toFixed(2),det,j.outcome?j.outcome.reason:''].map(q).join(','));
   }
   downloadFile(`jobs-${period}-${dayKey(new Date())}.csv`, rows.join('\r\n'), 'text/csv');
 };
