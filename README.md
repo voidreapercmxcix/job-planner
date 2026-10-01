@@ -73,6 +73,8 @@ The flip side: if you clear the browser's site data or uninstall without a backu
 
 When a new `index.html` (and usually `sw.js`) is released, upload them to the repository over the old ones and commit. On the phone, close the app fully and open it twice with signal. The first open fetches the new version, the second runs it.
 
+Save a backup from the ⋯ menu before updating, as a safety net. If anything is missing afterwards, Restore from backup puts it back.
+
 ## Files
 
 | File | Purpose |
