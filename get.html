@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Get Job Planner</title>
+<link rel="icon" href="icon.svg">
+<meta name="theme-color" content="#1B2130">
+<style>
+:root{--bg:#1B2130;--panel:#252D3E;--panel2:#2F384B;--ink:#EEF1F6;--ink2:#A7B0C2;--amber:#F2B441;--amber-ink:#1B2130;--red:#F0654F;font-size:18px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.4;padding:24px 18px 40px;max-width:520px;margin:0 auto}
+h1{font-size:1.8rem;margin:8px 0 4px}
+.sub{color:var(--ink2);margin-bottom:22px}
+.big{display:block;background:var(--amber);color:var(--amber-ink);text-decoration:none;font-weight:700;font-size:1.25rem;text-align:center;padding:18px;border-radius:14px;margin-bottom:26px}
+h2{font-size:1.05rem;color:var(--amber);margin:0 0 10px}
+ol{padding-left:0;list-style:none;counter-reset:s}
+li{background:var(--panel);border-radius:14px;padding:14px 14px 14px 56px;margin-bottom:10px;position:relative;counter-increment:s}
+li::before{content:counter(s);position:absolute;left:14px;top:12px;width:30px;height:30px;border-radius:50%;background:var(--panel2);color:var(--ink);font-weight:700;display:flex;align-items:center;justify-content:center}
+li b{color:var(--ink)}
+.warn{color:var(--red);font-weight:600}
+.small{color:var(--ink2);font-size:.9rem;margin-top:26px}
+.small a{color:var(--ink)}
+.icon{width:64px;height:64px;border-radius:16px;display:block}
+</style>
+</head>
+<body>
+<img class="icon" src="icon.svg" alt="">
+<h1>Job Planner</h1>
+<p class="sub">A job board and money tracker for vehicle delivery drivers. Free, no account, everything stays on your phone.</p>
+
+<a class="big" href="https://github.com/voidreapercmxcix/-job-planner-app/releases/latest">Download the app</a>
+
+<h2>Installing it</h2>
+<ol>
+  <li>On the download page, tap the file that ends in <b>.apk</b>. If your phone asks whether to allow installs from the browser, allow it.</li>
+  <li>Open the downloaded file and tap <b>Install</b>.</li>
+  <li>Google Play Protect will say <b>"App blocked to protect your device"</b>. That's because the app isn't from the Play Store, not because anything is wrong with it. Tap <b>More details</b>.</li>
+  <li>Now tap the grey words <b>Install anyway</b>. They look like a sentence, not a button, and they sit just above the big blue OK. <span class="warn">Don't tap OK, that cancels the install.</span></li>
+  <li>Open Job Planner. When it asks to send notifications, allow it. That's what makes the reminders work.</li>
+</ol>
+
+<p class="small">Don't want to install anything? <a href="https://voidreapercmxcix.github.io/job-planner/">Use the web version</a> in your browser instead. It does the same job, with calendar reminders instead of alarms.</p>
+<p class="small">Updating later: open the ⋯ menu in the app and save a backup first, then download the newer file the same way. Never uninstall the app to get past Play Protect.</p>
+</body>
+</html>
